@@ -76,12 +76,12 @@ bool all_leds_off(const int bus)
 
 bool set_led_color(const int bus, LED_ID led_id, LED_Color led_color, uint16_t value)
 {
-    const uint8_t channel = led_id*4+led_color;
+    const uint8_t channel = (led_id*4+led_color)*4;
 
-    return (i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_L  + channel*4, 0) >= 0 &&
-            i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_H  + channel*4, 0) >= 0 &&
-            i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_L + channel*4, value & 0xFF) >= 0 &&
-            i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_H + channel*4, value >> 8)   >= 0);
+    return (i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_L  + channel, 0) >= 0 &&
+            i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_H  + channel, 0) >= 0 &&
+            i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_L + channel, value & 0xFF) >= 0 &&
+            i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_H + channel, value >> 8)   >= 0);
 }
 
 #if 0
