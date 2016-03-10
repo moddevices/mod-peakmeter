@@ -26,14 +26,15 @@
 #include "jkmeter.h"
 
 
-Jkmeter::Jkmeter (const char *client_name, int nchan, float *pks) :
+Jkmeter::Jkmeter (jack_client_t* client, int nchan, float *pks) :
+    Jclient (client),
     _state (INITIAL),
     _pks (pks)
 {
     int   i;
     char  s [16];
 
-    if (open_jack (client_name, nchan, 0)) return;
+    if (open_jack (nchan, 0)) return;
     Kmeterdsp::init (_jack_rate, _jack_size, 0.5f, 15.0f);
     _kproc = new Kmeterdsp [nchan];
     for (i = 0; i < nchan; i++)

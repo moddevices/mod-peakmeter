@@ -23,7 +23,8 @@
 #include "jclient.h"
 
 
-Jclient::Jclient (void) :
+Jclient::Jclient (jack_client_t* client) :
+    _client (client),
     _inp_ports (0),
     _out_ports (0)
 {
@@ -40,7 +41,6 @@ Jclient::~Jclient (void)
 
 void Jclient::cleanup (void)
 {
-    _client = 0;
     _jack_name = 0;
     _jack_rate = 0;
     _jack_size = 0;
@@ -53,27 +53,14 @@ void Jclient::cleanup (void)
 }
 
 
-int Jclient::open_jack (const char *client_name, int max_inps, int max_outs)
+int Jclient::open_jack (int max_inps, int max_outs)
 {
-    jack_status_t       jack_stat;
-    struct sched_param  sched_par;
-
-    if (_client) return 1;
-
-    if ((_client = jack_client_open (client_name, JackNoStartServer, &jack_stat)) == 0)
-    {
-        return 1;
-    }
+    struct sched_param sched_par;
 
     jack_set_process_callback (_client, jack_static_process, (void *) this);
     jack_on_shutdown (_client, jack_static_shutdown, (void *) this);
+    jack_activate (_client);
 
-    if (jack_activate (_client))
-    {
-        jack_client_close (_client);
-        _client = 0;
-        return 1;
-    }
     _jack_name = jack_get_client_name (_client);
     _jack_rate = jack_get_sample_rate (_client);
     _jack_size = jack_get_buffer_size (_client);
@@ -100,12 +87,8 @@ int Jclient::open_jack (const char *client_name, int max_inps, int max_outs)
 
 int Jclient::close_jack (void)
 {
-    if (_client)
-    {
-       jack_deactivate (_client);
-       jack_client_close (_client);
-       cleanup ();
-    }
+    jack_deactivate (_client);
+    cleanup ();
     return 0;
 }
 

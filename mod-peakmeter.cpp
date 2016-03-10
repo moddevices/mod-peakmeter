@@ -1,12 +1,27 @@
-
-#include "jacktools/jclient.cc"
-#include "jacktools/jkmeter.cc"
-#include "jacktools/kmeterdsp.cc"
+// ----------------------------------------------------------------------------
+//
+//  Copyright (C) 2016 Filipe Coelho <falktx@falktx.com>
+//
+//  This program is free software; you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation; either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+//
+// ----------------------------------------------------------------------------
 
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstdint>
+#include <cstring>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -14,6 +29,10 @@
 extern "C" {
 #include "i2c-dev.h"
 }
+
+#include "jacktools/jkmeter.h"
+
+// --------------------------------------------------------------------------------------------------------------------
 
 /* Register Addresses */
 #define PCA9685_MODE1         0x00
@@ -47,8 +66,7 @@ extern "C" {
 // Maximum is 4095
 #define MAX_BRIGHTNESS 4095
 
-// Change this to false according to inverted status
-static const bool kInverted = false;
+// --------------------------------------------------------------------------------------------------------------------
 
 // Do not change these enums! They match how the hardware works.
 // Unless you're changing hardware, leave these alone.
@@ -78,61 +96,107 @@ bool set_led_color(const int bus, LED_ID led_id, LED_Color led_color, uint16_t v
 {
     const uint8_t channel = (led_id*4+led_color)*4;
 
-    return (i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_L  + channel, 0) >= 0 &&
-            i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_H  + channel, 0) >= 0 &&
-            i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_L + channel, value & 0xFF) >= 0 &&
+    return (i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_L + channel, value & 0xFF) >= 0 &&
             i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_H + channel, value >> 8)   >= 0);
 }
 
-#if 0
-void setPWMFreq(int bus, float freq)
+// --------------------------------------------------------------------------------------------------------------------
+// Global variables
+
+static int           g_bus     = -1;
+static volatile bool g_running = false;
+static pthread_t     g_thread  = -1;
+
+// --------------------------------------------------------------------------------------------------------------------
+// Peak Meter thread
+
+static void* peakmeter_run(void* arg)
 {
-    printf("Set PWM frequency %f\n", freq);
+    if (g_bus < 0 || arg == nullptr || ! g_running)
+        return nullptr;
 
-    float prescaleval = 25000000.0f; // 25MHz
-    prescaleval /= 4096.0f;          // 12-bit
-    prescaleval /= freq;
-    prescaleval -= 1.0f;
-    printf("Setting PWM frequency to %f Hz\n", freq);
-    printf("Estimated pre-scale: %f\n", prescaleval);
+    jack_client_t* const client = (jack_client_t*)arg;
 
-    const int prescale = std::floor(prescaleval + 0.5f);
-    printf("Final pre-scale: %d\n", prescale);
+    LED_ID colorIdMap[4] = {
+        kLedIn1,
+        kLedIn2,
+        kLedOut1,
+        kLedOut2,
+    };
 
-    const int oldmode = i2c_smbus_read_byte_data(bus, PCA9685_MODE1);
-    /* */ int newmode = (oldmode & 0x7F) | PCA9685_SLEEP;
-    i2c_smbus_write_byte_data(bus, PCA9685_MODE1, newmode); // go to sleep
-    i2c_smbus_write_byte_data(bus, PCA9685_PRESCALE, prescale);
-    i2c_smbus_write_byte_data(bus, PCA9685_MODE1, oldmode);
-    usleep(5*1000);
-    i2c_smbus_write_byte_data(bus, PCA9685_MODE1, oldmode | PCA9685_RESTART);
+    float pks[4];
+
+    Jkmeter meter(client, 4, pks);
+
+    // connect monitor ports
+    char ourportname[255];
+    const char* const ourclientname = jack_get_client_name(client);
+
+    sprintf(ourportname, "%s:in_1", ourclientname);
+    jack_connect(client, "system:capture_1", ourportname);
+
+    sprintf(ourportname, "%s:in_2", ourclientname);
+    jack_connect(client, "system:capture_2", ourportname);
+
+    if (jack_port_by_name(client, "mod-host:monitor-out_1") != nullptr)
+    {
+        sprintf(ourportname, "%s:in_3", ourclientname);
+        jack_connect(client, "mod-host:monitor-out_1", ourportname);
+
+        sprintf(ourportname, "%s:in_4", ourclientname);
+        jack_connect(client, "mod-host:monitor-out_2", ourportname);
+    }
+
+    while (meter.get_levels() == Jkmeter::PROCESS && g_running)
+    {
+        for (int i=0; i<4; ++i)
+        {
+            if (pks[i] < 0.01f)
+            {
+                set_led_color(g_bus, colorIdMap[i], kLedColorRed, 0);
+                set_led_color(g_bus, colorIdMap[i], kLedColorGreen, MAX_BRIGHTNESS);
+            }
+            else
+            {
+                const int diff = pks[i]*MAX_BRIGHTNESS;
+                if (diff < 0)
+                {
+                    printf("error in pks diff\n");
+                    continue;
+                }
+
+                if (diff > MAX_BRIGHTNESS)
+                {
+                    set_led_color(g_bus, colorIdMap[i], kLedColorRed, MAX_BRIGHTNESS);
+                    set_led_color(g_bus, colorIdMap[i], kLedColorGreen, 0);
+                }
+                else
+                {
+                    set_led_color(g_bus, colorIdMap[i], kLedColorRed, diff);
+                    set_led_color(g_bus, colorIdMap[i], kLedColorGreen, MAX_BRIGHTNESS-diff);
+                }
+            }
+        }
+        usleep(25*1000);
+    }
+
+    return nullptr;
 }
 
-int setPWM(int bus, uint8_t channel, uint16_t on, uint16_t off)
-{
-    printf("Set a single PWM channel %i %i %i\n", channel, on, off);
-    if (i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_L  + channel*4, on & 0xFF)  < 0 ||
-        i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_H  + channel*4, on >> 8)    < 0 ||
-        i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_L + channel*4, off & 0xFF) < 0 ||
-        i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_H + channel*4, off >> 8)   < 0)
-        return -1;
-    return 0;
-}
+// --------------------------------------------------------------------------------------------------------------------
+// JACK internal client calls
 
-int setAllPWM(int bus, uint16_t on, uint16_t off)
-{
-    printf("Set all PWM channels %i %i\n", on, off);
-    if (i2c_smbus_write_byte_data(bus, PCA9685_ALL_LED_ON_L,  on & 0xFF)  < 0 ||
-        i2c_smbus_write_byte_data(bus, PCA9685_ALL_LED_ON_H,  on >> 8)    < 0 ||
-        i2c_smbus_write_byte_data(bus, PCA9685_ALL_LED_OFF_L, off & 0xFF) < 0 ||
-        i2c_smbus_write_byte_data(bus, PCA9685_ALL_LED_OFF_H, off >> 8)   < 0)
-        return -1;
-    return 0;
-}
-#endif
+extern "C" __attribute__ ((visibility("default")))
+int jack_initialize(jack_client_t* client, const char* load_init);
 
-int main()
+int jack_initialize(jack_client_t* client, const char* load_init)
 {
+    // ----------------------------------------------------------------------------------------------------------------
+    // Check if using inverted mode
+
+    bool inverted = (load_init != nullptr && load_init[0] != '\0' &&
+                     (std::strcmp(load_init, "1") == 0 || std::strcmp(load_init, "true") == 0));
+
     // ----------------------------------------------------------------------------------------------------------------
     // Export and configure GPIO
 
@@ -150,7 +214,7 @@ int main()
 
     if (FILE* const fd = fopen("/sys/class/gpio/" PCA9685_GPIO_OE "/value", "w"))
     {
-        fprintf(fd, kInverted ? "0\n" : "1\n");
+        fprintf(fd, inverted ? "0\n" : "1\n");
         fclose(fd);
     }
 
@@ -211,60 +275,50 @@ int main()
     usleep(5*1000);
 
     // ----------------------------------------------------------------------------------------------------------------
-    // Monitor audio, let's start the fun!
+    // Reset everything
 
-    float pks[4];
+    /* By resetting all values we will only need to change the 2 off bits for setting led color.
+     * This makes led color change faster, and also uses less cpu. */
 
-    LED_ID colorIdMap[4] = {
-        kLedIn1,
-        kLedIn2,
-        kLedOut1,
-        kLedOut2,
-    };
-
-    Jkmeter meter("meter", 4, pks);
-
-    while (meter.get_levels() == Jkmeter::PROCESS)
+    for (int i=0; i<16; ++i)
     {
-        for (int i=0; i<4; ++i)
+        if (i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_L  + i*4, 0) < 0 &&
+            i2c_smbus_write_byte_data(bus, PCA9685_LED0_ON_H  + i*4, 0) < 0 &&
+            i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_L + i*4, 0) < 0 &&
+            i2c_smbus_write_byte_data(bus, PCA9685_LED0_OFF_H + i*4, 0) < 0)
         {
-            if (pks[i] < 0.01f)
-            {
-                set_led_color(bus, colorIdMap[i], kLedColorRed, 0);
-                set_led_color(bus, colorIdMap[i], kLedColorGreen, MAX_BRIGHTNESS);
-            }
-            else
-            {
-                const int diff = pks[i]*MAX_BRIGHTNESS;
-                if (diff < 0)
-                {
-                    printf("error in pks diff\n");
-                    continue;
-                }
-
-                if (diff > MAX_BRIGHTNESS)
-                {
-                    set_led_color(bus, colorIdMap[i], kLedColorRed, MAX_BRIGHTNESS);
-                    set_led_color(bus, colorIdMap[i], kLedColorGreen, 0);
-                }
-                else
-                {
-                    set_led_color(bus, colorIdMap[i], kLedColorRed, diff);
-                    set_led_color(bus, colorIdMap[i], kLedColorGreen, MAX_BRIGHTNESS-diff);
-                }
-            }
+            printf("write byte data5 failed\n");
+            return 1;
         }
-        usleep(25*1000);
     }
 
-/*
-jack_connect system:capture_1 meter:in_1
-jack_connect system:capture_2 meter:in_2
-jack_connect mod-host:monitor-out_1 meter:in_3
-jack_connect mod-host:monitor-out_2 meter:in_4
-*/
+    // ----------------------------------------------------------------------------------------------------------------
+    // Start peakmeter thread
 
-    close(bus);
+    g_bus = bus;
+    g_running = true;
+    pthread_create(&g_thread, NULL, peakmeter_run, client);
 
     return 0;
 }
+
+extern "C" __attribute__ ((visibility("default")))
+void jack_finish(void);
+
+void jack_finish(void)
+{
+    g_running = false;
+    pthread_join(g_thread, nullptr);
+    close(g_bus);
+
+    g_bus = -1;
+    g_thread = -1;
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+#include "jacktools/jclient.cc"
+#include "jacktools/jkmeter.cc"
+#include "jacktools/kmeterdsp.cc"
+
+// --------------------------------------------------------------------------------------------------------------------

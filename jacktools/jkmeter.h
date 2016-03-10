@@ -31,7 +31,7 @@ class Jkmeter : public Jclient
 {
 public:
 
-    Jkmeter (const char *client_name, int ninp, float *pks);
+    Jkmeter (jack_client_t* client, int ninp, float *pks);
     virtual ~Jkmeter (void);
 
     enum { INITIAL, PASSIVE, SILENCE, PROCESS, FAILED = -1, ZOMBIE = -2, MAXINP = 64 };

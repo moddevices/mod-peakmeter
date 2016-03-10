@@ -29,7 +29,7 @@ class Jclient
 {
 public:
 
-    Jclient (void);
+    Jclient (jack_client_t* client);
     virtual ~Jclient (void);
 
     const char *jack_name (void) const { return _jack_name; }
@@ -51,7 +51,7 @@ public:
 
 protected:
 
-    int open_jack (const char *client_name, int max_inps, int max_outs);
+    int open_jack (int max_inps, int max_outs);
     int close_jack (void);
 
     virtual void jack_shutdown (void) = 0;
