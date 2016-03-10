@@ -1,7 +1,8 @@
 // ------------------------------------------------------------------------
 //
 //  Copyright (C) 2008-2015 Fons Adriaensen <fons@linuxaudio.org>
-//    
+//  Copyright (C) 2016 Filipe Coelho <falktx@falktx.com>
+//
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
@@ -20,7 +21,7 @@
 
 
 #ifndef __KMETERDSP_H
-#define	__KMETERDSP_H
+#define __KMETERDSP_H
 
 
 class Kmeterdsp
@@ -30,18 +31,16 @@ public:
     Kmeterdsp (void);
     ~Kmeterdsp (void);
 
-    void process (float *p, int n);  
-    void read (float *rms, float *dpk);
+    void process (float *p, int n);
+    float read ();
 
     static void init (int fsamp, int fsize, float hold, float fall);
 
 private:
 
     float          _z0, _z1, _z2;  // filter state
-    float          _rms;           // max rms value since last read()
     float          _dpk;           // current digital peak value
     int            _cnt;	   // digital peak hold counter
-    bool           _flag;          // flag set by read(), resets _rms
 
 
     static int     _hold;          // number of JACK periods to hold peak value

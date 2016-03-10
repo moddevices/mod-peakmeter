@@ -48,7 +48,7 @@ extern "C" {
 #define MAX_BRIGHTNESS 4095
 
 // Change this to false according to inverted status
-static const bool kInverted = true;
+static const bool kInverted = false;
 
 // Do not change these enums! They match how the hardware works.
 // Unless you're changing hardware, leave these alone.
@@ -213,7 +213,6 @@ int main()
     // ----------------------------------------------------------------------------------------------------------------
     // Monitor audio, let's start the fun!
 
-    float rms[4];
     float pks[4];
 
     LED_ID colorIdMap[4] = {
@@ -223,7 +222,7 @@ int main()
         kLedOut2,
     };
 
-    Jkmeter meter("meter", nullptr, 4, rms, pks);
+    Jkmeter meter("meter", 4, pks);
 
     while (meter.get_levels() == Jkmeter::PROCESS)
     {

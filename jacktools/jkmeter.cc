@@ -1,7 +1,8 @@
 // ----------------------------------------------------------------------------
 //
 //  Copyright (C) 2008-2015 Fons Adriaensen <fons@linuxaudio.org>
-//    
+//  Copyright (C) 2016 Filipe Coelho <falktx@falktx.com>
+//
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 3 of the License, or
@@ -25,15 +26,14 @@
 #include "jkmeter.h"
 
 
-Jkmeter::Jkmeter (const char *client_name, const char *server_name, int nchan, float *rms, float *pks) :
+Jkmeter::Jkmeter (const char *client_name, int nchan, float *pks) :
     _state (INITIAL),
-    _rms (rms),
     _pks (pks)
 {
     int   i;
     char  s [16];
 
-    if (open_jack (client_name, server_name, nchan, 0)) return;
+    if (open_jack (client_name, nchan, 0)) return;
     Kmeterdsp::init (_jack_rate, _jack_size, 0.5f, 15.0f);
     _kproc = new Kmeterdsp [nchan];
     for (i = 0; i < nchan; i++)
@@ -77,10 +77,8 @@ int Jkmeter::jack_process (int nframes)
 
 int Jkmeter::get_levels (void)
 {
-    int  i, n = _max_inps;
-
-    for (i = 0; i < n; i++) _kproc [i].read (_rms + i, _pks + i);
+    for (int i = 0; i < _max_inps; ++i)
+        _pks[i] = _kproc [i].read ();
     return _state;
 }
-
 

@@ -1,7 +1,8 @@
 // ------------------------------------------------------------------------
 //
 //  Copyright (C) 2008-2015 Fons Adriaensen <fons@linuxaudio.org>
-//    
+//  Copyright (C) 2016 Filipe Coelho <falktx@falktx.com>
+//
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
@@ -23,10 +24,10 @@
 #include "kmeterdsp.h"
 
 
-int    Kmeterdsp::_hold; 
-float  Kmeterdsp::_fall; 
-float  Kmeterdsp::_wdcf; 
-float  Kmeterdsp::_wrms; 
+int    Kmeterdsp::_hold;
+float  Kmeterdsp::_fall;
+float  Kmeterdsp::_wdcf;
+float  Kmeterdsp::_wrms;
 
 
 
@@ -34,10 +35,8 @@ Kmeterdsp::Kmeterdsp (void) :
     _z0 (0),
     _z1 (0),
     _z2 (0),
-    _rms (0),
     _dpk (0),
-    _cnt (0),
-    _flag (false)
+    _cnt (0)
 {
 }
 
@@ -55,12 +54,6 @@ void Kmeterdsp::process (float *p, int n)
     // n : number of samples to process
 
     float  s, t, z0, z1, z2;
-
-    if (_flag) // Display thread has read the rms value.
-    {
-	_rms  = 0;
-	_flag = 0;
-    }
 
     // Get filter state.
     z0 = _z0;
@@ -89,10 +82,6 @@ void Kmeterdsp::process (float *p, int n)
     _z1 = z1 + 1e-25f;
     _z2 = z2 + 1e-25f;
 
-    // Adjust RMS value and update maximum since last read().
-    s = sqrtf (2 * z2);
-    if (s > _rms) _rms = s;
-
     // Digital peak hold and fallback.
     if (t > _dpk)
     {
@@ -109,16 +98,13 @@ void Kmeterdsp::process (float *p, int n)
 }
 
 
-void Kmeterdsp::read (float *rms, float *dpk)
+float Kmeterdsp::read ()
 {
     // Called by display process approx. 30 times per second.
     //
-    // Returns highest _rms value since last call, 
-    // and current _dpk value.
+    // Returns current _dpk value.
 
-    *rms = _rms;
-    *dpk = _dpk;
-    _flag = true; // Resets _rms in next process().
+    return _dpk;
 }
 
 

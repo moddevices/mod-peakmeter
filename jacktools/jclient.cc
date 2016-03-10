@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------------
 //
 //  Copyright (C) 2008-2015 Fons Adriaensen <fons@linuxaudio.org>
-//    
+//
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 3 of the License, or
@@ -53,17 +53,14 @@ void Jclient::cleanup (void)
 }
 
 
-int Jclient::open_jack (const char *client_name, const char *server_name, int max_inps, int max_outs)
+int Jclient::open_jack (const char *client_name, int max_inps, int max_outs)
 {
-    int                 jack_opts;
     jack_status_t       jack_stat;
     struct sched_param  sched_par;
-    
+
     if (_client) return 1;
 
-    jack_opts = JackNoStartServer;
-    if (server_name) jack_opts |= JackServerName;
-    if ((_client = jack_client_open (client_name, (jack_options_t)jack_opts, &jack_stat, server_name)) == 0)
+    if ((_client = jack_client_open (client_name, JackNoStartServer, &jack_stat)) == 0)
     {
         return 1;
     }
@@ -71,11 +68,11 @@ int Jclient::open_jack (const char *client_name, const char *server_name, int ma
     jack_set_process_callback (_client, jack_static_process, (void *) this);
     jack_on_shutdown (_client, jack_static_shutdown, (void *) this);
 
-    if (jack_activate (_client)) 
+    if (jack_activate (_client))
     {
         jack_client_close (_client);
-	_client = 0;
-	return 1;
+        _client = 0;
+        return 1;
     }
     _jack_name = jack_get_client_name (_client);
     _jack_rate = jack_get_sample_rate (_client);

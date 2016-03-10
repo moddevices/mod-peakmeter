@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------------
 //
 //  Copyright (C) 2008-2015 Fons Adriaensen <fons@linuxaudio.org>
-//    
+//
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 3 of the License, or
@@ -48,10 +48,10 @@ public:
 
     int max_inps (void) const { return _max_inps; }
     int max_outs (void) const { return _max_outs; }
-    
+
 protected:
 
-    int open_jack (const char *client_name, const char *server_name, int max_inps, int max_outs);
+    int open_jack (const char *client_name, int max_inps, int max_outs);
     int close_jack (void);
 
     virtual void jack_shutdown (void) = 0;
@@ -70,7 +70,7 @@ protected:
 
 
 private:
-    
+
     void cleanup (void);
 
     static void jack_static_shutdown (void *arg);
