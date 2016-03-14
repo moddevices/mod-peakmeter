@@ -214,7 +214,7 @@ int jack_initialize(jack_client_t* client, const char* load_init)
 
     if (FILE* const fd = fopen("/sys/class/gpio/" PCA9685_GPIO_OE "/value", "w"))
     {
-        fprintf(fd, inverted ? "0\n" : "1\n");
+        fprintf(fd, "0\n");
         fclose(fd);
     }
 
@@ -244,7 +244,9 @@ int jack_initialize(jack_client_t* client, const char* load_init)
         return 1;
     }
 
-    if (i2c_smbus_write_byte_data(bus, PCA9685_MODE2, PCA9685_INVRT|PCA9685_OUTDRV) < 0)
+    const uint8_t flags = inverted ? (PCA9685_INVRT|PCA9685_OUTDRV) : PCA9685_OUTDRV;
+
+    if (i2c_smbus_write_byte_data(bus, PCA9685_MODE2, flags) < 0)
     {
         printf("write byte data2 failed\n");
         return 1;
