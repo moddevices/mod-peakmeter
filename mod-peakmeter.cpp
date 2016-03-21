@@ -151,6 +151,16 @@ static void* peakmeter_run(void* arg)
     float value;
     uint8_t clip, clipping[4] = { 0, 0, 0, 0 };
 
+    uint16_t ledsCache[4][3] = {
+        {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}
+    };
+
+    #define set_led_color_cache(col, val)                  \
+        if (ledsCache[i][col] != val) {                    \
+            ledsCache[i][col] = val;                       \
+            set_led_color(g_bus, colorIdMap[i], col, val); \
+        }
+
     while (meter.get_levels() == Jkmeter::PROCESS && g_running)
     {
         for (int i=0; i<4; ++i)
@@ -163,16 +173,16 @@ static void* peakmeter_run(void* arg)
 
                 if (clip < 5)
                 {
-                    set_led_color(g_bus, colorIdMap[i], kLedColorRed, MAX_BRIGHTNESS_RED);
-                    set_led_color(g_bus, colorIdMap[i], kLedColorGreen, 0);
+                    set_led_color_cache(kLedColorRed, MAX_BRIGHTNESS_RED);
+                    set_led_color_cache(kLedColorGreen, 0);
                 }
                 else
                 {
                     if (clip > 8)
                         clipping[i] = 0;
 
-                    set_led_color(g_bus, colorIdMap[i], kLedColorRed, MIN_BRIGHTNESS_RED);
-                    set_led_color(g_bus, colorIdMap[i], kLedColorGreen, 0);
+                    set_led_color_cache(kLedColorRed, MIN_BRIGHTNESS_RED);
+                    set_led_color_cache(kLedColorGreen, 0);
                 }
             }
             else // no clipping
@@ -183,23 +193,23 @@ static void* peakmeter_run(void* arg)
 
                 /**/ if (value < 0.032f) // x < -30dB, off
                 {
-                    set_led_color(g_bus, colorIdMap[i], kLedColorRed, 0);
-                    set_led_color(g_bus, colorIdMap[i], kLedColorGreen, 0);
+                    set_led_color_cache(kLedColorRed, 0);
+                    set_led_color_cache(kLedColorGreen, 0);
                 }
                 else if (value < 0.25f) // -30dB < x < -12dB, green
                 {
-                    set_led_color(g_bus, colorIdMap[i], kLedColorRed, 0);
-                    set_led_color(g_bus, colorIdMap[i], kLedColorGreen, MIN_BRIGHTNESS_GREEN);
+                    set_led_color_cache(kLedColorRed, 0);
+                    set_led_color_cache(kLedColorGreen, MIN_BRIGHTNESS_GREEN);
                 }
                 else if (value < 0.70f) // -12dB < x < -3dB, yellow
                 {
-                    set_led_color(g_bus, colorIdMap[i], kLedColorRed, MIN_BRIGHTNESS_RED);
-                    set_led_color(g_bus, colorIdMap[i], kLedColorGreen, MIN_BRIGHTNESS_GREEN);
+                    set_led_color_cache(kLedColorRed, MIN_BRIGHTNESS_RED);
+                    set_led_color_cache(kLedColorGreen, MIN_BRIGHTNESS_GREEN);
                 }
                 else // all red
                 {
-                    set_led_color(g_bus, colorIdMap[i], kLedColorRed, MIN_BRIGHTNESS_RED);
-                    set_led_color(g_bus, colorIdMap[i], kLedColorGreen, 0);
+                    set_led_color_cache(kLedColorRed, MIN_BRIGHTNESS_RED);
+                    set_led_color_cache(kLedColorGreen, 0);
                 }
             }
         }
