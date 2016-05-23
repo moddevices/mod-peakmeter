@@ -1,6 +1,7 @@
 // ----------------------------------------------------------------------------
 //
 //  Copyright (C) 2008-2015 Fons Adriaensen <fons@linuxaudio.org>
+//  Copyright (C) 2016 Filipe Coelho <falktx@falktx.com>
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by

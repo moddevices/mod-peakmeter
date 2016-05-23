@@ -61,9 +61,7 @@ void Kmeterdsp::process (float *p, int n)
     z2 = _z2;
 
     // Process n samples. Find digital peak value for this
-    // period and perform filtering. The second filter is
-    // evaluated only every 4th sample - this is just an
-    // optimisation.
+    // period and perform filtering on squared signal.
     t = 0;
     while (n--)
     {
@@ -93,12 +91,12 @@ void Kmeterdsp::process (float *p, int n)
     else
     {
         _dpk *= _fall;     // else let the peak value fall back,
-	_dpk += 1e-10f;    // and avoid denormals.
+	_dpk += 1e-25f;    // and avoid denormals.
     }
 }
 
 
-float Kmeterdsp::read ()
+float Kmeterdsp::read (void)
 {
     // Called by display process approx. 30 times per second.
     //

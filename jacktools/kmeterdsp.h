@@ -32,7 +32,7 @@ public:
     ~Kmeterdsp (void);
 
     void process (float *p, int n);
-    float read ();
+    float read (void);
 
     static void init (int fsamp, int fsize, float hold, float fall);
 
