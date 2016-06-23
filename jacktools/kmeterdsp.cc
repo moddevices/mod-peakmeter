@@ -53,12 +53,7 @@ void Kmeterdsp::process (float *p, int n)
     // p : pointer to sample buffer
     // n : number of samples to process
 
-    float  s, t, z0, z1, z2;
-
-    // Get filter state.
-    z0 = _z0;
-    z1 = _z1;
-    z2 = _z2;
+    float s, t;
 
     // Process n samples. Find digital peak value for this
     // period and perform filtering on squared signal.
@@ -66,19 +61,14 @@ void Kmeterdsp::process (float *p, int n)
     while (n--)
     {
 	s = *p++;
-	z0 += _wdcf * (s - z0);      // DC filter
-	s -= z0;
+	_z0 += _wdcf * (s - _z0);      // DC filter
+	s -= _z0;
 	s *= s;
 	if (t < s) t = s;            // Update digital peak.
-	z1 += _wrms * (s - z1);      // Update first filter.
-        z2 += _wrms * (z1 - z2);     // Update second filter.
+	_z1 += _wrms * (s - _z1);      // Update first filter.
+        _z2 += _wrms * (_z1 - _z2);     // Update second filter.
     }
     t = sqrtf (t);
-
-    // Save filter state. The added constants avoid denormals.
-    _z0 = z0 + 1e-25f;
-    _z1 = z1 + 1e-25f;
-    _z2 = z2 + 1e-25f;
 
     // Digital peak hold and fallback.
     if (t > _dpk)
@@ -91,7 +81,6 @@ void Kmeterdsp::process (float *p, int n)
     else
     {
         _dpk *= _fall;     // else let the peak value fall back,
-	_dpk += 1e-25f;    // and avoid denormals.
     }
 }
 
