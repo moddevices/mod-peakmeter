@@ -24,36 +24,6 @@
 #include "jclient.h"
 
 
-static void jack_static_thread_init(void*)
-{
-/* Disable denormal numbers in floating point calculation.
- * Taken from cras/src/dsp/dsp_util.c in Chromium OS code.
- * Copyright (c) 2013 The Chromium OS Authors. */
-#if defined(__i386__) || defined(__x86_64__)
-        unsigned int mxcsr;
-        mxcsr = __builtin_ia32_stmxcsr();
-        __builtin_ia32_ldmxcsr(mxcsr | 0x8040);
-#elif defined(__aarch64__)
-        uint64_t cw;
-        __asm__ __volatile__ (
-                "mrs    %0, fpcr                            \n"
-                "orr    %0, %0, #0x1000000                  \n"
-                "msr    fpcr, %0                            \n"
-                "isb                                        \n"
-                : "=r"(cw) :: "memory");
-#elif defined(__arm__)
-        uint32_t cw;
-        __asm__ __volatile__ (
-                "vmrs   %0, fpscr                           \n"
-                "orr    %0, %0, #0x1000000                  \n"
-                "vmsr   fpscr, %0                           \n"
-                : "=r"(cw) :: "memory");
-#else
-#warning "Don't know how to disable denormals. Performace may suffer."
-#endif
-}
-
-
 Jclient::Jclient (jack_client_t* client) :
     _client (client),
     _inp_ports (0),
@@ -88,7 +58,6 @@ int Jclient::open_jack (int max_inps, int max_outs)
 {
     struct sched_param sched_par;
 
-    jack_set_thread_init_callback (_client, jack_static_thread_init, NULL);
     jack_set_process_callback (_client, jack_static_process, (void *) this);
     jack_on_shutdown (_client, jack_static_shutdown, (void *) this);
     jack_activate (_client);
