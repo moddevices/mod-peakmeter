@@ -39,8 +39,8 @@ Jkmeter::Jkmeter (jack_client_t* client, int nchan, float *pks) :
     _kproc = new Kmeterdsp [nchan];
     for (i = 0; i < nchan; i++)
     {
-	sprintf (s, "in_%d", i + 1);
-	create_inp_port (i, s);
+        sprintf (s, "in_%d", i + 1);
+        create_inp_port (i, s);
     }
     _state = PROCESS;
 }
@@ -70,7 +70,7 @@ int Jkmeter::jack_process (int nframes)
     for (i = 0; i < n; i++)
     {
         p = (float *) jack_port_get_buffer (_inp_ports [i], nframes);
-	_kproc [i].process (p, nframes);
+        _kproc [i].process (p, nframes);
     }
     return 0;
 }

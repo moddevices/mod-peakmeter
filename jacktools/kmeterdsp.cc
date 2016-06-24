@@ -65,12 +65,12 @@ void Kmeterdsp::process (float *p, int n)
     t = 0;
     while (n--)
     {
-	s = *p++;
-	z0 += _wdcf * (s - z0);      // DC filter
-	s -= z0;
-	s *= s;
-	if (t < s) t = s;            // Update digital peak.
-	z1 += _wrms * (s - z1);      // Update first filter.
+        s = *p++;
+        z0 += _wdcf * (s - z0);      // DC filter
+        s -= z0;
+        s *= s;
+        if (t < s) t = s;            // Update digital peak.
+        z1 += _wrms * (s - z1);      // Update first filter.
         z2 += _wrms * (z1 - z2);     // Update second filter.
     }
     t = sqrtf (t);
@@ -83,15 +83,15 @@ void Kmeterdsp::process (float *p, int n)
     // Digital peak hold and fallback.
     if (t > _dpk)
     {
-	// If higher than current value, update and set hold counter.
-	_dpk = t;
-	_cnt = _hold;
+        // If higher than current value, update and set hold counter.
+        _dpk = t;
+        _cnt = _hold;
     }
     else if (_cnt) _cnt--; // else decrement counter if not zero,
     else
     {
         _dpk *= _fall;     // else let the peak value fall back,
-	_dpk += 1e-25f;    // and avoid denormals.
+        _dpk += 1e-25f;    // and avoid denormals.
     }
 }
 

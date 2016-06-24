@@ -127,18 +127,18 @@ int Jclient::delete_inp_port (int i)
     if ((i < -1) || (i >= _max_inps)) return -1;
     if (i == -1)
     {
-	for (i = 0; i < _max_inps; i++)
+        for (i = 0; i < _max_inps; i++)
         {
             if (_inp_ports [i])
-	    {
+            {
                 jack_port_unregister (_client, _inp_ports [i]);
-	        _inp_ports [i] = 0;
-	    }
-	}
+                _inp_ports [i] = 0;
+            }
+        }
     }
     else
     {
-	if (!_inp_ports [i]) return -1;
+        if (!_inp_ports [i]) return -1;
         jack_port_unregister (_client, _inp_ports [i]);
         _inp_ports [i] = 0;
     }
@@ -151,18 +151,18 @@ int Jclient::delete_out_port (int i)
     if ((i < -1) || (i >= _max_outs)) return -1;
     if (i == -1)
     {
-	for (i = 0; i < _max_outs; i++)
+        for (i = 0; i < _max_outs; i++)
         {
             if (_out_ports [i])
-	    {
+            {
                 jack_port_unregister (_client, _out_ports [i]);
-	        _out_ports [i] = 0;
-	    }
-	}
+                _out_ports [i] = 0;
+            }
+        }
     }
     else
     {
-	if (!_out_ports [i]) return -1;
+        if (!_out_ports [i]) return -1;
         jack_port_unregister (_client, _out_ports [i]);
         _out_ports [i] = 0;
     }
@@ -200,7 +200,7 @@ int Jclient::disconn_inp_port (int i, const char *srce)
         for (i = 0; i < _max_inps; i++)
         {
             if (_inp_ports [i]) jack_port_disconnect (_client, _inp_ports [i]);
-	}
+        }
     }
     else
     {
@@ -220,7 +220,7 @@ int Jclient::disconn_out_port (int i, const char *dest)
         for (i = 0; i < _max_outs; i++)
         {
             if (_out_ports [i]) jack_port_disconnect (_client, _out_ports [i]);
-	}
+        }
     }
     else
     {
