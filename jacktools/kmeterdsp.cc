@@ -75,10 +75,10 @@ void Kmeterdsp::process (float *p, int n)
     }
     t = sqrtf (t);
 
-    // Save filter state. The added constants avoid denormals.
-    _z0 = z0 + 1e-25f;
-    _z1 = z1 + 1e-25f;
-    _z2 = z2 + 1e-25f;
+    // Save filter state.
+    _z0 = z0;
+    _z1 = z1;
+    _z2 = z2;
 
     // Digital peak hold and fallback.
     if (t > _dpk)
@@ -91,7 +91,6 @@ void Kmeterdsp::process (float *p, int n)
     else
     {
         _dpk *= _fall;     // else let the peak value fall back,
-        _dpk += 1e-25f;    // and avoid denormals.
     }
 }
 
