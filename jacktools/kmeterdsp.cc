@@ -66,6 +66,12 @@ void Kmeterdsp::process (float *p, int n)
     while (n--)
     {
         s = *p++;
+
+        if (s < -1.0f)
+            s = -1.0f;
+        else if (s > 1.0f)
+            s = 1.0f;
+
         z0 += _wdcf * (s - z0);      // DC filter
         s -= z0;
         s *= s;
