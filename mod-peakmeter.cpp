@@ -139,13 +139,13 @@ static void* peakmeter_run(void* arg)
     sprintf(ourportname, "%s:in_2", ourclientname);
     jack_connect(client, "system:capture_2", ourportname);
 
-    if (jack_port_by_name(client, "mod-host:monitor-out_1") != nullptr)
+    if (jack_port_by_name(client, "mod-monitor:out_1") != nullptr)
     {
         sprintf(ourportname, "%s:in_3", ourclientname);
-        jack_connect(client, "mod-host:monitor-out_1", ourportname);
+        jack_connect(client, "mod-monitor:out_1", ourportname);
 
         sprintf(ourportname, "%s:in_4", ourclientname);
-        jack_connect(client, "mod-host:monitor-out_2", ourportname);
+        jack_connect(client, "mod-monitor:out_2", ourportname);
     }
 
     float value;
