@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------------
 //
 //  Copyright (C) 2008-2015 Fons Adriaensen <fons@linuxaudio.org>
-//  Copyright (C) 2016 Filipe Coelho <falktx@falktx.com>
+//  Copyright (C) 2016-2017 Filipe Coelho <falktx@falktx.com>
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@ public:
 private:
 
     void jack_shutdown (void);
+    int  jack_bufsize (int nfram);
     int  jack_process (int nfram);
 
     int              _state;

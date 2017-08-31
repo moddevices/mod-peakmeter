@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------------
 //
 //  Copyright (C) 2008-2015 Fons Adriaensen <fons@linuxaudio.org>
-//  Copyright (C) 2016 Filipe Coelho <falktx@falktx.com>
+//  Copyright (C) 2016-2017 Filipe Coelho <falktx@falktx.com>
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -56,6 +56,7 @@ protected:
     int close_jack (void);
 
     virtual void jack_shutdown (void) = 0;
+    virtual int  jack_bufsize (int nframes) = 0;
     virtual int  jack_process (int nframes) = 0;
 
     jack_client_t   *_client;
@@ -75,6 +76,7 @@ private:
     void cleanup (void);
 
     static void jack_static_shutdown (void *arg);
+    static int  jack_static_bufsize (jack_nframes_t nframes, void *arg);
     static int  jack_static_process (jack_nframes_t nframes, void *arg);
 };
 

@@ -1,7 +1,7 @@
 // ----------------------------------------------------------------------------
 //
 //  Copyright (C) 2008-2015 Fons Adriaensen <fons@linuxaudio.org>
-//  Copyright (C) 2016 Filipe Coelho <falktx@falktx.com>
+//  Copyright (C) 2016-2017 Filipe Coelho <falktx@falktx.com>
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -89,6 +89,7 @@ int Jclient::open_jack (int max_inps, int max_outs)
     struct sched_param sched_par;
 
     jack_set_thread_init_callback (_client, jack_static_thread_init, NULL);
+    jack_set_buffer_size_callback (_client, jack_static_bufsize, (void *) this);
     jack_set_process_callback (_client, jack_static_process, (void *) this);
     jack_on_shutdown (_client, jack_static_shutdown, (void *) this);
     jack_activate (_client);
@@ -128,6 +129,12 @@ int Jclient::close_jack (void)
 void Jclient::jack_static_shutdown (void *arg)
 {
     ((Jclient *) arg)->jack_shutdown ();
+}
+
+
+int Jclient::jack_static_bufsize (jack_nframes_t nframes, void *arg)
+{
+    return ((Jclient *) arg)->jack_bufsize (nframes);
 }
 
 
