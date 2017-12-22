@@ -60,7 +60,7 @@ extern "C" {
 #define PCA9685_BUS     4
 #define PCA9685_ADDR    0x41
 #define PCA9685_GPIO_ID 5
-#define PCA9685_GPIO_OE "gpio5_pa8"
+#define PCA9685_GPIO_OE "gpio5*"
 
 // Brightness values
 #define MIN_BRIGHTNESS_GREEN 100
@@ -236,19 +236,38 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     // ----------------------------------------------------------------------------------------------------------------
     // Export and configure GPIO
 
-    if (FILE* const fd = fopen("/sys/class/gpio/export", "w"))
+    FILE* fd;
+
+    char gpio_path[1024];
+    fd = popen("basename /sys/devices/platform/gpio-sunxi/gpio/" PCA9685_GPIO_OE, "r");
+    if (fd != NULL)
+    {
+        strcpy(gpio_path, "/sys/class/gpio/");
+        fgets(&gpio_path[16], sizeof(gpio_path)-1, fd);
+        gpio_path[strlen(gpio_path)-1] = 0;
+        pclose(fd);
+    }
+
+    fd = fopen("/sys/class/gpio/export", "w");
+    if (fd != NULL)
     {
         fprintf(fd, "%i\n", PCA9685_GPIO_ID);
         fclose(fd);
     }
 
-    if (FILE* const fd = fopen("/sys/class/gpio/" PCA9685_GPIO_OE "/direction", "w"))
+    int e = strlen(gpio_path);
+
+    strcpy(&gpio_path[e], "/direction");
+    fd = fopen(gpio_path, "w");
+    if (fd != NULL)
     {
         fprintf(fd, "out\n");
         fclose(fd);
     }
 
-    if (FILE* const fd = fopen("/sys/class/gpio/" PCA9685_GPIO_OE "/value", "w"))
+    strcpy(&gpio_path[e], "/value");
+    fd = fopen(gpio_path, "w");
+    if (fd != NULL)
     {
         fprintf(fd, "0\n");
         fclose(fd);
