@@ -56,11 +56,19 @@ extern "C" {
 #define PCA9685_OUTDRV  0x04
 #define PCA9685_INVRT   0x10
 
-// Custom MOD
+/* Custom MOD */
+#ifdef __aarch64__
+// MOD Duo X
+#define PCA9685_BUS     0
+#define PCA9685_ADDR    0x41
+#define PCA9685_GPIO_ID 87
+#else
+// MOD Duo
 #define PCA9685_BUS     4
 #define PCA9685_ADDR    0x41
 #define PCA9685_GPIO_ID 5
 #define PCA9685_GPIO_OE "gpio5*"
+#endif
 
 // Brightness values
 #define MIN_BRIGHTNESS_GREEN 100
@@ -239,6 +247,9 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     FILE* fd;
 
     char gpio_path[1024];
+#ifdef __aarch64__
+    sprintf(gpio_path, "/sys/class/gpio/gpio%d", PCA9685_GPIO_ID);
+#else
     fd = popen("basename /sys/devices/platform/gpio-sunxi/gpio/" PCA9685_GPIO_OE, "r");
     if (fd != NULL)
     {
@@ -247,6 +258,7 @@ int jack_initialize(jack_client_t* client, const char* load_init)
         gpio_path[strlen(gpio_path)-1] = 0;
         pclose(fd);
     }
+#endif
 
     fd = fopen("/sys/class/gpio/export", "w");
     if (fd != NULL)
@@ -264,6 +276,11 @@ int jack_initialize(jack_client_t* client, const char* load_init)
         fprintf(fd, "out\n");
         fclose(fd);
     }
+    else
+    {
+        printf("gpio direction setup failed\n");
+        goto end;
+    }
 
     strcpy(&gpio_path[e], "/value");
     fd = fopen(gpio_path, "w");
@@ -272,6 +289,12 @@ int jack_initialize(jack_client_t* client, const char* load_init)
         fprintf(fd, "0\n");
         fclose(fd);
     }
+    else
+    {
+        printf("gpio value setup failed\n");
+        goto end;
+    }
+
 
     // ----------------------------------------------------------------------------------------------------------------
     // Open i2c bus
