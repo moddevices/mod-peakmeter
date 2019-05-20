@@ -279,7 +279,6 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     else
     {
         printf("gpio direction setup failed\n");
-        goto end;
     }
 
     strcpy(&gpio_path[e], "/value");
@@ -292,7 +291,6 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     else
     {
         printf("gpio value setup failed\n");
-        goto end;
     }
 
 
