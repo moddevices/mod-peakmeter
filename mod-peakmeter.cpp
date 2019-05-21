@@ -297,7 +297,10 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     // ----------------------------------------------------------------------------------------------------------------
     // Open i2c bus
 
-    const int bus = open("/dev/i2c-4", O_RDWR);
+    char i2c_dev_path[16];
+    sprintf(i2c_dev_path, "/dev/i2c-%d", PCA9685_BUS);
+
+    const int bus = open(i2c_dev_path, O_RDWR);
 
     if (bus < 0)
     {
