@@ -220,7 +220,7 @@ static void* peakmeter_run(void* arg)
                 }
                 else if (filtered_value[i] < 0.9f) //yellow
                 {
-                    set_led_color_cache(kLedColorRed, (MAP(filtered_value[i], 0.5, 0.9, 10, MIN_BRIGHTNESS_RED)));
+                    set_led_color_cache(kLedColorRed, (MAP(filtered_value[i], 0.75, 0.9, 10, MIN_BRIGHTNESS_RED)));
                     set_led_color_cache(kLedColorGreen, MIN_BRIGHTNESS_GREEN);
                 }
                 else // all red
