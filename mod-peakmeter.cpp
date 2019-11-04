@@ -71,9 +71,12 @@ extern "C" {
 #endif
 
 // Brightness values
-#define MIN_BRIGHTNESS_GREEN 100
-#define MIN_BRIGHTNESS_RED   50
+#define MIN_BRIGHTNESS_GREEN 120
+#define MIN_BRIGHTNESS_RED   120
 #define MAX_BRIGHTNESS_RED   1024
+
+//macro for mapping audio value to LED brightness
+#define MAP(x, Imin, Imax, Omin, Omax)      (( x - Imin ) * (Omax -  Omin)  / (Imax - Imin) + Omin)
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -115,7 +118,7 @@ bool set_led_color(const int bus, LED_ID led_id, LED_Color led_color, uint16_t v
 static int           g_bus     = -1;
 static volatile bool g_running = false;
 static pthread_t     g_thread  = -1;
-
+static float filtered_value[4] = {};
 // --------------------------------------------------------------------------------------------------------------------
 // Peak Meter thread
 
@@ -159,6 +162,9 @@ static void* peakmeter_run(void* arg)
     float value;
     uint8_t clip, clipping[4] = { 0, 0, 0, 0 };
 
+    //weighing factor
+    //float k = 0.;
+
     uint16_t ledsCache[4][3] = {
         {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}
     };
@@ -195,23 +201,26 @@ static void* peakmeter_run(void* arg)
             }
             else // no clipping
             {
+
                 // was clipping before
                 if (clipping[i] > 0)
                     clipping[i] = 0;
 
-                /**/ if (value < 0.032f) // x < -30dB, off
+                //filtered_value[i] = k * value + (1.0 - k) * filtered_value[i];
+
+                if (value < 0.032f) // x < -30dB, off
                 {
                     set_led_color_cache(kLedColorRed, 0);
                     set_led_color_cache(kLedColorGreen, 0);
                 }
-                else if (value < 0.25f) // -30dB < x < -12dB, green
+                else if (value < 0.75f) //green
                 {
                     set_led_color_cache(kLedColorRed, 0);
-                    set_led_color_cache(kLedColorGreen, MIN_BRIGHTNESS_GREEN);
+                    set_led_color_cache(kLedColorGreen, (MAP(value, 0, 0.75, 10, MIN_BRIGHTNESS_GREEN)));
                 }
-                else if (value < 0.70f) // -12dB < x < -3dB, yellow
+                else if (value< 0.9f) //yellow
                 {
-                    set_led_color_cache(kLedColorRed, MIN_BRIGHTNESS_RED);
+                    set_led_color_cache(kLedColorRed, (MAP(value, 0.75, 0.9, 10, MIN_BRIGHTNESS_RED)));
                     set_led_color_cache(kLedColorGreen, MIN_BRIGHTNESS_GREEN);
                 }
                 else // all red
@@ -219,6 +228,7 @@ static void* peakmeter_run(void* arg)
                     set_led_color_cache(kLedColorRed, MIN_BRIGHTNESS_RED);
                     set_led_color_cache(kLedColorGreen, 0);
                 }
+
             }
         }
         usleep(25*1000);

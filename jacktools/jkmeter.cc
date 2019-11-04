@@ -35,7 +35,7 @@ Jkmeter::Jkmeter (jack_client_t* client, int nchan, float *pks) :
     char  s [16];
 
     if (open_jack (nchan, 0)) return;
-    Kmeterdsp::init (_jack_rate, _jack_size, 0.25f, 30.0f);
+    Kmeterdsp::init (_jack_rate, _jack_size, 0.5f, 40.0f);
     _kproc = new Kmeterdsp [nchan];
     for (i = 0; i < nchan; i++)
     {
