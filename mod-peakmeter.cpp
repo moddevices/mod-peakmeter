@@ -208,19 +208,19 @@ static void* peakmeter_run(void* arg)
 
                 filtered_value[i] = k * value + (1.0 - k) * filtered_value[i];
 
-                if (filtered_value[i] < 0.032f) // x < -30dB, off
+                if (filtered_value[i] < 0.009f) // x < -40dB, off
                 {
                     set_led_color_cache(kLedColorRed, 0);
                     set_led_color_cache(kLedColorGreen, 0);
                 }
-                else if (filtered_value[i] < 0.75f) //green
+                else if (filtered_value[i] < 0.5f) //x < -6dB, green 
                 {
                     set_led_color_cache(kLedColorRed, 0);
-                    set_led_color_cache(kLedColorGreen, (MAP(filtered_value[i], 0, 0.75, 10, MIN_BRIGHTNESS_GREEN)));
+                    set_led_color_cache(kLedColorGreen, (MAP(filtered_value[i], 0, 0.5, 10, MIN_BRIGHTNESS_GREEN)));
                 }
-                else if (filtered_value[i] < 0.9f) //yellow
+                else if (filtered_value[i] < 0.9f) //x < -1dB, yellow
                 {
-                    set_led_color_cache(kLedColorRed, (MAP(filtered_value[i], 0.75, 0.9, 10, MIN_BRIGHTNESS_RED)));
+                    set_led_color_cache(kLedColorRed, (MAP(filtered_value[i], 0.5, 0.9, 10, MIN_BRIGHTNESS_RED)));
                     set_led_color_cache(kLedColorGreen, MIN_BRIGHTNESS_GREEN);
                 }
                 else // all red
