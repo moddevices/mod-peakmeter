@@ -237,6 +237,7 @@ static void* peakmeter_run(void* arg)
     return nullptr;
 }
 
+
 // --------------------------------------------------------------------------------------------------------------------
 // JACK internal client calls
 
