@@ -308,8 +308,24 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     // ----------------------------------------------------------------------------------------------------------------
     // Open i2c bus
 
+    int bus_number = PCA9685_BUS;
+
+#ifdef __aarch64__
+    FILE* const dt_file = fopen("/proc/device-tree/compatible", "r");
+    if (dt_file != NULL)
+    {
+        char dt_compat[32];
+        memset(dt_compat, 0, sizeof(dt_compat));
+        fread(dt_compat, 31, 1, dt_file);
+        fclose(dt_file);
+
+        if (strstr(dt_compat, "rk3399") != NULL)
+            bus_number = 4;
+    }
+#endif
+
     char i2c_dev_path[16];
-    sprintf(i2c_dev_path, "/dev/i2c-%d", PCA9685_BUS);
+    sprintf(i2c_dev_path, "/dev/i2c-%d", bus_number);
 
     const int bus = open(i2c_dev_path, O_RDWR);
 
