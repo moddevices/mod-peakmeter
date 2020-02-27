@@ -253,13 +253,53 @@ int jack_initialize(jack_client_t* client, const char* load_init)
                      (std::strcmp(load_init, "1") == 0 || std::strcmp(load_init, "true") == 0));
 
     // ----------------------------------------------------------------------------------------------------------------
+    // Open i2c bus
+
+    int bus_number = PCA9685_BUS;
+    int oe_gpio = PCA9685_GPIO_ID;
+
+#ifdef __aarch64__
+    FILE* const dt_file = fopen("/proc/device-tree/compatible", "r");
+    if (dt_file != NULL)
+    {
+        char dt_compat[32];
+        memset(dt_compat, 0, sizeof(dt_compat));
+        fread(dt_compat, 31, 1, dt_file);
+        fclose(dt_file);
+
+        if (strstr(dt_compat, "rk3399") != NULL)
+        {
+            bus_number = 4;
+            oe_gpio = 112;
+        }
+    }
+#endif
+
+    char i2c_dev_path[16];
+    sprintf(i2c_dev_path, "/dev/i2c-%d", bus_number);
+
+    const int bus = open(i2c_dev_path, O_RDWR);
+
+    if (bus < 0)
+    {
+        printf("open failed\n");
+        return 1;
+    }
+
+    if (ioctl(bus, I2C_SLAVE, PCA9685_ADDR) < 0)
+    {
+        printf("slave addr failed\n");
+        return 1;
+    }
+
+    // ----------------------------------------------------------------------------------------------------------------
     // Export and configure GPIO
 
     FILE* fd;
 
     char gpio_path[1024];
 #ifdef __aarch64__
-    sprintf(gpio_path, "/sys/class/gpio/gpio%d", PCA9685_GPIO_ID);
+    sprintf(gpio_path, "/sys/class/gpio/gpio%d", oe_gpio);
 #else
     fd = popen("basename /sys/devices/platform/gpio-sunxi/gpio/" PCA9685_GPIO_OE, "r");
     if (fd != NULL)
@@ -274,7 +314,7 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     fd = fopen("/sys/class/gpio/export", "w");
     if (fd != NULL)
     {
-        fprintf(fd, "%i\n", PCA9685_GPIO_ID);
+        fprintf(fd, "%i\n", oe_gpio);
         fclose(fd);
     }
 
@@ -302,43 +342,6 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     else
     {
         printf("gpio value setup failed\n");
-    }
-
-
-    // ----------------------------------------------------------------------------------------------------------------
-    // Open i2c bus
-
-    int bus_number = PCA9685_BUS;
-
-#ifdef __aarch64__
-    FILE* const dt_file = fopen("/proc/device-tree/compatible", "r");
-    if (dt_file != NULL)
-    {
-        char dt_compat[32];
-        memset(dt_compat, 0, sizeof(dt_compat));
-        fread(dt_compat, 31, 1, dt_file);
-        fclose(dt_file);
-
-        if (strstr(dt_compat, "rk3399") != NULL)
-            bus_number = 4;
-    }
-#endif
-
-    char i2c_dev_path[16];
-    sprintf(i2c_dev_path, "/dev/i2c-%d", bus_number);
-
-    const int bus = open(i2c_dev_path, O_RDWR);
-
-    if (bus < 0)
-    {
-        printf("open failed\n");
-        return 1;
-    }
-
-    if (ioctl(bus, I2C_SLAVE, PCA9685_ADDR) < 0)
-    {
-        printf("slave addr failed\n");
-        return 1;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
