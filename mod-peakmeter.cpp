@@ -75,8 +75,14 @@ extern "C" {
 #define MIN_BRIGHTNESS_RED   120
 #define MAX_BRIGHTNESS_RED   1024
 
-//macro for mapping audio value to LED brightness
-#define MAP(x, Imin, Imax, Omin, Omax)      (( x - Imin ) * (Omax -  Omin)  / (Imax - Imin) + Omin)
+#define MIN_BRIGHTNESS_GREEN_f 120.f
+#define MIN_BRIGHTNESS_RED_f   120.f
+
+// macro for mapping audio value to LED brightness
+#define MAP(x, Imin, Imax, Omin, Omax)      ((x - Imin) * (Omax -  Omin) / (Imax - Imin) + Omin)
+
+// weighing factor
+#define FILTER_WEIGHING_FACTOR 0.1f
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -118,7 +124,7 @@ bool set_led_color(const int bus, LED_ID led_id, LED_Color led_color, uint16_t v
 static int           g_bus     = -1;
 static volatile bool g_running = false;
 static pthread_t     g_thread  = -1;
-static float filtered_value[4] = {};
+
 // --------------------------------------------------------------------------------------------------------------------
 // Peak Meter thread
 
@@ -129,6 +135,30 @@ static void* peakmeter_run(void* arg)
 
     jack_client_t* const client = (jack_client_t*)arg;
 
+    float pks[4];
+    Jkmeter meter(client, 4, pks);
+
+    {
+        // connect monitor ports
+        char ourportname[255];
+        const char* const ourclientname = jack_get_client_name(client);
+
+        sprintf(ourportname, "%s:in_1", ourclientname);
+        jack_connect(client, "system:capture_1", ourportname);
+
+        sprintf(ourportname, "%s:in_2", ourclientname);
+        jack_connect(client, "system:capture_2", ourportname);
+
+        if (jack_port_by_name(client, "mod-monitor:out_1") != nullptr)
+        {
+            sprintf(ourportname, "%s:in_3", ourclientname);
+            jack_connect(client, "mod-monitor:out_1", ourportname);
+
+            sprintf(ourportname, "%s:in_4", ourclientname);
+            jack_connect(client, "mod-monitor:out_2", ourportname);
+        }
+    }
+
     LED_ID colorIdMap[4] = {
         kLedIn1,
         kLedIn2,
@@ -136,37 +166,16 @@ static void* peakmeter_run(void* arg)
         kLedOut2,
     };
 
-    float pks[4];
-
-    Jkmeter meter(client, 4, pks);
-
-    // connect monitor ports
-    char ourportname[255];
-    const char* const ourclientname = jack_get_client_name(client);
-
-    sprintf(ourportname, "%s:in_1", ourclientname);
-    jack_connect(client, "system:capture_1", ourportname);
-
-    sprintf(ourportname, "%s:in_2", ourclientname);
-    jack_connect(client, "system:capture_2", ourportname);
-
-    if (jack_port_by_name(client, "mod-monitor:out_1") != nullptr)
-    {
-        sprintf(ourportname, "%s:in_3", ourclientname);
-        jack_connect(client, "mod-monitor:out_1", ourportname);
-
-        sprintf(ourportname, "%s:in_4", ourclientname);
-        jack_connect(client, "mod-monitor:out_2", ourportname);
-    }
-
     float value;
     uint8_t clip, clipping[4] = { 0, 0, 0, 0 };
-
-    //weighing factor
-    float k = 0.1;
+    uint16_t cval;
 
     uint16_t ledsCache[4][3] = {
         {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}
+    };
+
+    float filtered_value[4] = {
+        0.0f, 0.0f, 0.0f, 0.0f
     };
 
     #define set_led_color_cache(col, val)                  \
@@ -201,26 +210,27 @@ static void* peakmeter_run(void* arg)
             }
             else // no clipping
             {
-
                 // was clipping before
                 if (clipping[i] > 0)
                     clipping[i] = 0;
 
-                filtered_value[i] = k * value + (1.0 - k) * filtered_value[i];
+                value = FILTER_WEIGHING_FACTOR * value + (1.0f - FILTER_WEIGHING_FACTOR) * filtered_value[i];
 
-                if (filtered_value[i] < 0.009f) // x < -40dB, off
+                if (value < 0.009f) // x < -40dB, off
                 {
                     set_led_color_cache(kLedColorRed, 0);
                     set_led_color_cache(kLedColorGreen, 0);
                 }
-                else if (filtered_value[i] < 0.5f) //x < -6dB, green 
+                else if (value < 0.5f) //x < -6dB, green
                 {
+                    cval = uint16_t(MAP(value, 0.0f, 0.5f, 10.f, MIN_BRIGHTNESS_GREEN_f));
                     set_led_color_cache(kLedColorRed, 0);
-                    set_led_color_cache(kLedColorGreen, (MAP(filtered_value[i], 0, 0.5, 10, MIN_BRIGHTNESS_GREEN)));
+                    set_led_color_cache(kLedColorGreen, cval);
                 }
-                else if (filtered_value[i] < 0.9f) //x < -1dB, yellow
+                else if (value < 0.9f) //x < -1dB, yellow
                 {
-                    set_led_color_cache(kLedColorRed, (MAP(filtered_value[i], 0.5, 0.9, 10, MIN_BRIGHTNESS_RED)));
+                    cval = uint16_t(MAP(value, 0.5f, 0.9f, 10.f, MIN_BRIGHTNESS_RED_f));
+                    set_led_color_cache(kLedColorRed, cval);
                     set_led_color_cache(kLedColorGreen, MIN_BRIGHTNESS_GREEN);
                 }
                 else // all red
@@ -229,6 +239,7 @@ static void* peakmeter_run(void* arg)
                     set_led_color_cache(kLedColorGreen, 0);
                 }
 
+                filtered_value[i] = value;
             }
         }
         usleep(25*1000);
