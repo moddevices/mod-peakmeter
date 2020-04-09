@@ -292,18 +292,24 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     FILE* fd;
 
     char gpio_path[1024];
-#ifdef __aarch64__
-    sprintf(gpio_path, "/sys/class/gpio/gpio%d", oe_gpio);
-#else
-    fd = popen("basename /sys/devices/platform/gpio-sunxi/gpio/" PCA9685_GPIO_OE, "r");
-    if (fd != NULL)
+
+#ifndef __aarch64__
+    if (access("/proc/device-tree/compatible", F_OK) < 0)
     {
-        strcpy(gpio_path, "/sys/class/gpio/");
-        fgets(&gpio_path[16], sizeof(gpio_path)-1, fd);
-        gpio_path[strlen(gpio_path)-1] = 0;
-        pclose(fd);
+        fd = popen("basename /sys/devices/platform/gpio-sunxi/gpio/" PCA9685_GPIO_OE, "r");
+        if (fd != NULL)
+        {
+            strcpy(gpio_path, "/sys/class/gpio/");
+            fgets(&gpio_path[16], sizeof(gpio_path)-1, fd);
+            gpio_path[strlen(gpio_path)-1] = 0;
+            pclose(fd);
+        }
     }
+    else
 #endif
+    {
+        sprintf(gpio_path, "/sys/class/gpio/gpio%d", oe_gpio);
+    }
 
     fd = fopen("/sys/class/gpio/export", "w");
     if (fd != NULL)
