@@ -308,6 +308,7 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     else
 #endif
     {
+        bus_number = 3;
         sprintf(gpio_path, "/sys/class/gpio/gpio%d", oe_gpio);
     }
 
