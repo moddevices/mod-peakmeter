@@ -297,16 +297,12 @@ int jack_initialize(jack_client_t* client, const char* load_init)
                 oe_gpio = 112;
             }
 #else
+            bus_number = 2;
+
             if (strstr(dt_compat, "marsboard") != NULL)
-            {
-                bus_number = 3;
                 oe_gpio = 247;
-            }
-            else if (strstr(dt_compat, "itead") != NULL)
-            {
-                bus_number = 2;
+            else
                 oe_gpio = 8;
-            }
 #endif
         }
     }
