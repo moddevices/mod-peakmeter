@@ -269,22 +269,47 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     int bus_number = PCA9685_BUS;
     int oe_gpio = PCA9685_GPIO_ID;
 
-#ifdef __aarch64__
-    FILE* const dt_file = fopen("/proc/device-tree/compatible", "r");
-    if (dt_file != NULL)
+    if (access("/proc/device-tree/compatible", F_OK) >= 0)
     {
-        char dt_compat[32];
-        memset(dt_compat, 0, sizeof(dt_compat));
-        fread(dt_compat, 31, 1, dt_file);
-        fclose(dt_file);
-
-        if (strstr(dt_compat, "rk3399") != NULL)
+        FILE* const dt_file = fopen("/proc/device-tree/compatible", "r");
+        if (dt_file != NULL)
         {
-            bus_number = 4;
-            oe_gpio = 112;
+            char dt_compat[48];
+            memset(dt_compat, 0, sizeof(dt_compat));
+            fread(dt_compat, 47, 1, dt_file);
+            fclose(dt_file);
+
+            // replace zeroes with newline
+            for (uint8_t i=0; i<47; ++i)
+            {
+                if (dt_compat[i] == '\0')
+                {
+                    if (dt_compat[i+1] == '\0')
+                        break;
+                    dt_compat[i] = '\n';
+                }
+            }
+
+#ifdef __aarch64__
+            if (strstr(dt_compat, "rk3399") != NULL)
+            {
+                bus_number = 4;
+                oe_gpio = 112;
+            }
+#else
+            if (strstr(dt_compat, "marsboard") != NULL)
+            {
+                bus_number = 3;
+                oe_gpio = 247;
+            }
+            else if (strstr(dt_compat, "itead") != NULL)
+            {
+                bus_number = 2;
+                oe_gpio = 8;
+            }
+#endif
         }
     }
-#endif
 
     // ----------------------------------------------------------------------------------------------------------------
     // Export and configure GPIO
@@ -308,7 +333,6 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     else
 #endif
     {
-        bus_number = 3;
         sprintf(gpio_path, "/sys/class/gpio/gpio%d", oe_gpio);
     }
 
