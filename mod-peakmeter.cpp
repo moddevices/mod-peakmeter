@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 
 #include <fcntl.h>
@@ -57,18 +58,7 @@ extern "C" {
 #define PCA9685_INVRT   0x10
 
 /* Custom MOD */
-#ifdef __aarch64__
-// MOD Duo X
-#define PCA9685_BUS     0
-#define PCA9685_ADDR    0x41
-#define PCA9685_GPIO_ID 87
-#else
-// MOD Duo
-#define PCA9685_BUS     4
-#define PCA9685_ADDR    0x41
-#define PCA9685_GPIO_ID 5
-#define PCA9685_GPIO_OE "gpio5*"
-#endif
+#define PCA9685_ADDR 0x41
 
 // Brightness values
 #define MIN_BRIGHTNESS_GREEN 120
@@ -266,82 +256,39 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     // ----------------------------------------------------------------------------------------------------------------
     // Setup environment
 
-    int bus_number = PCA9685_BUS;
-    int oe_gpio = PCA9685_GPIO_ID;
+    const char* const bus_number_env = std::getenv("MOD_PEAKMETER_BUS_NUMBER");
 
-    if (access("/proc/device-tree/compatible", F_OK) >= 0)
+    if (bus_number_env == nullptr || bus_number_env[0] == '\0')
     {
-        FILE* const dt_file = fopen("/proc/device-tree/compatible", "r");
-        if (dt_file != NULL)
-        {
-            char dt_compat[48];
-            memset(dt_compat, 0, sizeof(dt_compat));
-            fread(dt_compat, 47, 1, dt_file);
-            fclose(dt_file);
+        printf("MOD_PEAKMETER_BUS_NUMBER env var missing\n");
+        return 1;
+    }
 
-            // replace zeroes with newline
-            for (uint8_t i=0; i<47; ++i)
-            {
-                if (dt_compat[i] == '\0')
-                {
-                    if (dt_compat[i+1] == '\0')
-                        break;
-                    dt_compat[i] = '\n';
-                }
-            }
+    const char* const gpio_path_env = std::getenv("MOD_PEAKMETER_GPIO_PATH");
 
-#ifdef __aarch64__
-            if (strstr(dt_compat, "rk3399") != NULL)
-            {
-                bus_number = 4;
-                oe_gpio = 112;
-            }
-#else
-            bus_number = 2;
+    if (gpio_path_env == nullptr || gpio_path_env[0] == '\0')
+    {
+        printf("MOD_PEAKMETER_GPIO_PATH env var missing\n");
+        return 1;
+    }
 
-            if (strstr(dt_compat, "marsboard") != NULL)
-                oe_gpio = 247;
-            else
-                oe_gpio = 8;
-#endif
-        }
+    const int bus_number = std::atoi(bus_number_env);
+    const size_t gpio_path_len = std::strlen(gpio_path_env);
+
+    if (gpio_path_len > 1000)
+    {
+        printf("MOD_PEAKMETER_GPIO_PATH env var value is too big\n");
+        return 1;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
-    // Export and configure GPIO
+    // Configure GPIO
 
     FILE* fd;
-
     char gpio_path[1024];
+    std::strcpy(gpio_path, gpio_path_env);
 
-#ifndef __aarch64__
-    if (access("/proc/device-tree/compatible", F_OK) < 0)
-    {
-        fd = popen("basename /sys/devices/platform/gpio-sunxi/gpio/" PCA9685_GPIO_OE, "r");
-        if (fd != NULL)
-        {
-            strcpy(gpio_path, "/sys/class/gpio/");
-            fgets(&gpio_path[16], sizeof(gpio_path)-1, fd);
-            gpio_path[strlen(gpio_path)-1] = 0;
-            pclose(fd);
-        }
-    }
-    else
-#endif
-    {
-        sprintf(gpio_path, "/sys/class/gpio/gpio%d", oe_gpio);
-    }
-
-    fd = fopen("/sys/class/gpio/export", "w");
-    if (fd != NULL)
-    {
-        fprintf(fd, "%i\n", oe_gpio);
-        fclose(fd);
-    }
-
-    int e = strlen(gpio_path);
-
-    strcpy(&gpio_path[e], "/direction");
+    std::strcpy(&gpio_path[gpio_path_len], "/direction");
     fd = fopen(gpio_path, "w");
     if (fd != NULL)
     {
@@ -350,10 +297,10 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     }
     else
     {
-        printf("gpio direction setup failed\n");
+        printf("mod-peakmeter: gpio direction setup failed, path: %s\n", gpio_path);
     }
 
-    strcpy(&gpio_path[e], "/value");
+    std::strcpy(&gpio_path[gpio_path_len], "/value");
     fd = fopen(gpio_path, "w");
     if (fd != NULL)
     {
@@ -362,7 +309,7 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     }
     else
     {
-        printf("gpio value setup failed\n");
+        printf("mod-peakmeter: gpio value setup failed, path: %s\n", gpio_path);
     }
 
     // ----------------------------------------------------------------------------------------------------------------
