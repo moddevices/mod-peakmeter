@@ -76,14 +76,28 @@ extern "C" {
 
 // --------------------------------------------------------------------------------------------------------------------
 
+// FIXME remove this eventually, for v1.12
+#if __GNUC__ == 7
+#define _MOD_DEVICE_DWARF
+#endif
+
 // Do not change these enums! They match how the hardware works.
 // Unless you're changing hardware, leave these alone.
+#ifdef _MOD_DEVICE_DWARF
+enum LED_ID {
+    kLedOut1,
+    kLedOut2,
+    kLedIn2,
+    kLedIn1
+};
+#else
 enum LED_ID {
     kLedOut2,
     kLedOut1,
     kLedIn1,
     kLedIn2
 };
+#endif
 
 enum LED_Color {
     kLedColorBlue,
