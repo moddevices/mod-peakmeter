@@ -85,8 +85,8 @@ extern "C" {
 // Unless you're changing hardware, leave these alone.
 #ifdef _MOD_DEVICE_DWARF
 enum LED_ID {
-    kLedOut1,
     kLedOut2,
+    kLedOut1,
     kLedIn2,
     kLedIn1
 };
