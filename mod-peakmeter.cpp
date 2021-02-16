@@ -188,6 +188,9 @@ static void* peakmeter_run(void* arg)
             set_led_color(g_bus, colorIdMap[i], col, val); \
         }
 
+    // sleep 5s before starting to change levels
+    sleep(5);
+
     while (meter.get_levels() == Jkmeter::PROCESS && g_running)
     {
         for (int i=0; i<4; ++i)
