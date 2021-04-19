@@ -37,6 +37,8 @@ public:
     enum { INITIAL, PASSIVE, SILENCE, PROCESS, FAILED = -1, ZOMBIE = -2, MAXINP = 64 };
 
     int get_levels (void);
+    int get_state (void);
+    void setup_post (int* sem);
 
 private:
 
@@ -47,6 +49,7 @@ private:
     int              _state;
     Kmeterdsp       *_kproc;
     float           *_pks;
+    int             *_sem;
 };
 
 

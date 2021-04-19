@@ -184,13 +184,10 @@ static void* peakmeter_run(void* arg)
 
     if (Container* const container = g_container)
     {
-        while (meter.get_levels() == Jkmeter::PROCESS && g_running)
-        {
-            // sem_post
-            if (__sync_bool_compare_and_swap(&container->sem, 0, 1))
-                syscall(SYS_futex, &container->sem, FUTEX_WAKE, 1, nullptr, nullptr, 0);
-            usleep(25*1000);
-        }
+        meter.setup_post(&g_container->sem);
+
+        while (meter.get_state() == Jkmeter::PROCESS && g_running)
+            usleep(100*1000);
         return nullptr;
     }
 

@@ -29,7 +29,8 @@
 Jkmeter::Jkmeter (jack_client_t* client, int nchan, float *pks) :
     Jclient (client),
     _state (INITIAL),
-    _pks (pks)
+    _pks (pks),
+    _sem (NULL)
 {
     int   i;
     char  s [16];
@@ -86,6 +87,16 @@ int Jkmeter::jack_process (int nframes)
         p = (float *) jack_port_get_buffer (_inp_ports [i], nframes);
         _kproc [i].process (p, nframes);
     }
+
+    if (_sem)
+    {
+        for (i = 0; i < n; i++)
+            _pks[i] = _kproc [i].read ();
+
+        if (__sync_bool_compare_and_swap(_sem, 0, 1))
+            syscall(SYS_futex, _sem, FUTEX_WAKE, 1, nullptr, nullptr, 0);
+    }
+
     return 0;
 }
 
@@ -95,5 +106,17 @@ int Jkmeter::get_levels (void)
     for (int i = 0; i < _max_inps; ++i)
         _pks[i] = _kproc [i].read ();
     return _state;
+}
+
+
+int Jkmeter::get_state (void)
+{
+    return _state;
+}
+
+
+void Jkmeter::setup_post (int* sem)
+{
+    _sem = sem;
 }
 
