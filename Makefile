@@ -13,7 +13,7 @@ CXXFLAGS += $(BASEFLAGS) -std=gnu++11
 LDFLAGS  += -Wl,--no-undefined
 
 mod-peakmeter.so: mod-peakmeter.cpp jacktools/*
-	$(CXX) $< $(CXXFLAGS) $(LDFLAGS) $(shell pkg-config --cflags --libs jack) -lpthread -shared -o $@
+	$(CXX) $< $(CXXFLAGS) $(LDFLAGS) $(shell pkg-config --cflags --libs jack) -lpthread -lrt -shared -o $@
 
 clean:
 	rm -f mod-peakmeter.so

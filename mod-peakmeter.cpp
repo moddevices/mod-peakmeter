@@ -27,6 +27,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <sys/mman.h>
+#include <syscall.h>
+#include <linux/futex.h>
+
+#if !defined(SYS_futex) && defined(SYS_futex_time64)
+#define SYS_futex SYS_futex_time64
+#endif
+
 extern "C" {
 #include "i2c-dev.h"
 }
@@ -73,6 +81,15 @@ extern "C" {
 
 // weighing factor
 #define FILTER_WEIGHING_FACTOR 0.1f
+
+// --------------------------------------------------------------------------------------------------------------------
+
+typedef struct {
+    int sem;
+    int shm1, shm2;
+    int padding;
+    float peaks[4];
+} Container;
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -125,22 +142,24 @@ bool set_led_color(const int bus, LED_ID led_id, LED_Color led_color, uint16_t v
 // --------------------------------------------------------------------------------------------------------------------
 // Global variables
 
-static int           g_bus     = -1;
-static volatile bool g_running = false;
-static pthread_t     g_thread  = -1;
+static int           g_bus       = -1;
+static volatile bool g_running   = false;
+static pthread_t     g_thread    = -1;
+static Container*    g_container = nullptr;
 
 // --------------------------------------------------------------------------------------------------------------------
 // Peak Meter thread
 
 static void* peakmeter_run(void* arg)
 {
-    if (g_bus < 0 || arg == nullptr || ! g_running)
+    if (arg == nullptr || ! g_running)
         return nullptr;
 
+    const bool using_container = g_container != nullptr;
     jack_client_t* const client = (jack_client_t*)arg;
 
     float pks[4];
-    Jkmeter meter(client, 4, pks);
+    Jkmeter meter(client, 4, using_container ? g_container->peaks : pks);
 
     {
         // connect monitor ports
@@ -162,6 +181,21 @@ static void* peakmeter_run(void* arg)
             jack_connect(client, "mod-monitor:out_2", ourportname);
         }
     }
+
+    if (Container* const container = g_container)
+    {
+        while (meter.get_levels() == Jkmeter::PROCESS && g_running)
+        {
+            // sem_post
+            if (__sync_bool_compare_and_swap(&container->sem, 0, 1))
+                syscall(SYS_futex, &container->sem, FUTEX_WAKE, 1, nullptr, nullptr, 0);
+            usleep(25*1000);
+        }
+        return nullptr;
+    }
+
+    if (g_bus == -1)
+        return nullptr;
 
     LED_ID colorIdMap[4] = {
         kLedIn1,
@@ -252,14 +286,48 @@ static void* peakmeter_run(void* arg)
     return nullptr;
 }
 
+// --------------------------------------------------------------------------------------------------------------------
+// peakmeter inside a container
+
+static int jack_initialize_container(jack_client_t* client)
+{
+    // ----------------------------------------------------------------------------------------------------------------
+    // Setup container
+
+    const int fd = shm_open("/ac", O_RDWR, 0);
+
+    if (fd < 0)
+    {
+        fprintf(stderr, "shm_open failed\n");
+        return 1;
+    }
+
+    Container* const container = (Container*)mmap(NULL, sizeof(Container),
+                                                  PROT_READ|PROT_WRITE, MAP_SHARED|MAP_LOCKED, fd, 0);
+
+    if (container == NULL || container == MAP_FAILED)
+    {
+        fprintf(stderr, "mmap failed\n");
+        close(fd);
+        return 1;
+    }
+
+    container->shm2 = fd;
+    g_container = container;
+
+    // ----------------------------------------------------------------------------------------------------------------
+    // Start peakmeter thread
+
+    g_running = true;
+    pthread_create(&g_thread, NULL, peakmeter_run, client);
+
+    return 0;
+}
 
 // --------------------------------------------------------------------------------------------------------------------
-// JACK internal client calls
+// peakmeter using MOD LEDs
 
-extern "C" __attribute__ ((visibility("default")))
-int jack_initialize(jack_client_t* client, const char* load_init);
-
-int jack_initialize(jack_client_t* client, const char* load_init)
+static int jack_initialize_leds(jack_client_t* client, const char* load_init)
 {
     // ----------------------------------------------------------------------------------------------------------------
     // Check if using inverted mode
@@ -415,17 +483,46 @@ int jack_initialize(jack_client_t* client, const char* load_init)
     return 0;
 }
 
-extern "C" __attribute__ ((visibility("default")))
-void jack_finish(void);
+// --------------------------------------------------------------------------------------------------------------------
+// JACK internal client calls
 
-void jack_finish(void)
+extern "C" __attribute__ ((visibility("default")))
+int jack_initialize(jack_client_t* client, const char* load_init);
+
+int jack_initialize(jack_client_t* client, const char* load_init)
+{
+    if (load_init != nullptr && std::strcmp(load_init, "container") == 0)
+        return jack_initialize_container(client);
+
+    return jack_initialize_leds(client, load_init);
+}
+
+extern "C" __attribute__ ((visibility("default")))
+void jack_finish(void *arg);
+
+void jack_finish(void *arg)
 {
     g_running = false;
     pthread_join(g_thread, nullptr);
-    close(g_bus);
+
+    if (g_bus != -1)
+        close(g_bus);
+
+    if (g_container != nullptr)
+    {
+        const int fd = g_container->shm2;
+        munmap(g_container, sizeof(Container));
+        close(fd);
+    }
 
     g_bus = -1;
     g_thread = -1;
+    g_container = nullptr;
+
+    return;
+
+    // unused
+    (void)arg;
 }
 
 // --------------------------------------------------------------------------------------------------------------------
