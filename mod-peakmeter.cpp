@@ -96,10 +96,19 @@ typedef struct {
 // Do not change these enums! They match how the hardware works.
 // Unless you're changing hardware, leave these alone.
 enum LED_ID {
+#ifndef _MOD_DEVICE_DWARF
+    // normal
     kLedOut2,
     kLedOut1,
     kLedIn1,
     kLedIn2
+#else
+    // inverted for dwarf
+    kLedOut1,
+    kLedOut2,
+    kLedIn2,
+    kLedIn1
+#endif
 };
 
 enum LED_Color {
@@ -152,35 +161,19 @@ static void* peakmeter_run(void* arg)
         char ourportname[255];
         const char* const ourclientname = jack_get_client_name(client);
 
-#ifdef __MOD_DEVICES__
-        sprintf(ourportname, "%s:in_1", ourclientname);
-        jack_connect(client, "mod-host:out1", ourportname);
-
-        sprintf(ourportname, "%s:in_2", ourclientname);
-        jack_connect(client, "mod-host:out2", ourportname);
-#else
         sprintf(ourportname, "%s:in_1", ourclientname);
         jack_connect(client, "system:capture_1", ourportname);
 
         sprintf(ourportname, "%s:in_2", ourclientname);
         jack_connect(client, "system:capture_2", ourportname);
-#endif
 
         if (jack_port_by_name(client, "mod-monitor:out_1") != nullptr)
         {
-#ifndef _MOD_DEVICE_DWARF
             sprintf(ourportname, "%s:in_3", ourclientname);
             jack_connect(client, "mod-monitor:out_1", ourportname);
 
             sprintf(ourportname, "%s:in_4", ourclientname);
             jack_connect(client, "mod-monitor:out_2", ourportname);
-#else
-            sprintf(ourportname, "%s:in_3", ourclientname);
-            jack_connect(client, "mod-monitor:out_2", ourportname);
-
-            sprintf(ourportname, "%s:in_4", ourclientname);
-            jack_connect(client, "mod-monitor:out_1", ourportname);
-#endif
         }
     }
 
